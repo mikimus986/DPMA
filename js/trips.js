@@ -1,6 +1,7 @@
 /* =========================================
    DPMA ONLINE
    TRIPS.JS – FINÁLNÍ VERZE
+   + AUTOMATICKÝ VÝPOČET VOZIDEL
 ========================================= */
 
 
@@ -12,17 +13,24 @@ const allTrips = new Map();
 
 
 /* =========================================
-   PŘIŘAZENÍ VOZIDEL KE SPOJŮM
+   VOZIDLA SPOJŮ
 ========================================= */
 
 const tripVehicles = new Map();
 
 
 /* =========================================
-   VYTVOŘENÉ OBRATY
+   OBRATY
 ========================================= */
 
 const tripTurnarounds = new Map();
+
+
+/* =========================================
+   VYPOČTENÉ VOZOVÉ PARKY LINEK
+========================================= */
+
+const lineFleetPlans = new Map();
 
 
 /* =========================================
@@ -66,18 +74,11 @@ function getCurrentDayType() {
     const day =
         new Date().getDay();
 
-    /*
-        0 = neděle
-        6 = sobota
-    */
-
     if (
         day === 0 ||
         day === 6
     ) {
-
         return "weekends";
-
     }
 
     return "workdays";
@@ -107,7 +108,7 @@ function buildTrip(
         const stop of direction.stops
     ) {
 
-        const arrivalMinutes =
+        const stopTime =
             departureMinutes +
             Number(stop.min || 0);
 
@@ -119,7 +120,7 @@ function buildTrip(
 
             time:
                 minutesToTime(
-                    arrivalMinutes
+                    stopTime
                 ),
 
             offset:
@@ -170,7 +171,7 @@ function buildTrip(
 
 
 /* =========================================
-   VYTVOŘENÍ VŠECH SPOJŮ LINKY
+   VYTVOŘENÍ VŠECH SPOJŮ
 ========================================= */
 
 function createTrips(
@@ -212,7 +213,6 @@ function createTrips(
         ) {
 
             continue;
-
         }
 
 
@@ -229,29 +229,19 @@ function createTrips(
                 );
 
 
-            /*
-                Pokud spoj už existuje,
-                použijeme ten původní.
-            */
-
             if (
                 allTrips.has(
                     trip.id
                 )
             ) {
 
-                const existing =
+                lineTrips.push(
                     allTrips.get(
                         trip.id
-                    );
-
-                lineTrips.push(
-                    existing
+                    )
                 );
 
-            }
-
-            else {
+            } else {
 
                 allTrips.set(
                     trip.id,
@@ -267,6 +257,18 @@ function createTrips(
         }
 
     }
+
+
+    /*
+        Po vytvoření spojů
+        automaticky spočítáme
+        potřebný počet vozidel.
+    */
+
+    calculateRequiredVehicles(
+        lineData,
+        lineTrips
+    );
 
 
     return lineTrips;
@@ -350,7 +352,7 @@ function getTripArrivalTime(
 
 
 /* =========================================
-   KONEČNÁ SPOJE
+   KONEČNÁ
 ========================================= */
 
 function getTripFinalStop(
@@ -376,7 +378,7 @@ function getTripFinalStop(
 
 
 /* =========================================
-   NAJÍT OPAČNÝ SMĚR
+   OPAČNÝ SMĚR
 ========================================= */
 
 function getOppositeDirection(
@@ -394,11 +396,6 @@ function getOppositeDirection(
     }
 
 
-    /*
-        Pokud máme A → hledáme B.
-        Pokud máme B → hledáme A.
-    */
-
     const oppositeId =
         trip.directionId === "A"
             ? "B"
@@ -415,7 +412,7 @@ function getOppositeDirection(
 
 
 /* =========================================
-   NAJÍT NÁSLEDUJÍCÍ SPOJ
+   NÁSLEDUJÍCÍ SPOJ
 ========================================= */
 
 function findNextTrip(
@@ -432,11 +429,6 @@ function findNextTrip(
 
     }
 
-
-    /*
-        Obrat může nastat pouze
-        na konečné.
-    */
 
     const arrivalTime =
         getTripArrivalTime(
@@ -488,11 +480,6 @@ function findNextTrip(
     }
 
 
-    /*
-        Hledáme první odjezd
-        po příjezdu vozidla.
-    */
-
     for (
         const departure
         of timetable
@@ -513,20 +500,11 @@ function findNextTrip(
                 `${lineData.line}_${oppositeDirection.id}_${departure}`;
 
 
-            /*
-                Nejprve zkusíme existující spoj.
-            */
-
             let nextTrip =
                 allTrips.get(
                     tripId
                 );
 
-
-            /*
-                Pokud ještě neexistuje,
-                vytvoříme ho.
-            */
 
             if (!nextTrip) {
 
@@ -554,6 +532,283 @@ function findNextTrip(
 
 
     return null;
+}
+
+
+/* =========================================
+   AUTOMATICKÝ VÝPOČET POTŘEBNÉHO POČTU VOZŮ
+========================================= */
+
+function calculateRequiredVehicles(
+    lineData,
+    trips
+) {
+
+    if (
+        !lineData ||
+        !trips ||
+        trips.length === 0
+    ) {
+
+        return null;
+
+    }
+
+
+    /*
+        Seřadíme všechny spoje
+        podle odjezdu.
+    */
+
+    const sortedTrips =
+        [...trips].sort(
+            (a, b) => {
+
+                return (
+                    timeToMinutes(
+                        a.departure
+                    ) -
+                    timeToMinutes(
+                        b.departure
+                    )
+                );
+
+            }
+        );
+
+
+    /*
+        Vozidla, která máme
+        momentálně k dispozici.
+    */
+
+    const availableVehicles = [];
+
+
+    /*
+        Výsledný plán.
+    */
+
+    const vehicles = [];
+
+
+    /*
+        Každý prvek obsahuje:
+
+        vehicleId
+        availableAt
+        location
+        trips
+    */
+
+
+    for (
+        const trip
+        of sortedTrips
+    ) {
+
+        const departureTime =
+            timeToMinutes(
+                trip.departure
+            );
+
+
+        /*
+            Hledáme vozidlo,
+            které:
+
+            1. je už na místě odjezdu
+            2. přijelo před odjezdem
+        */
+
+        let selectedVehicle =
+            null;
+
+
+        let selectedIndex =
+            -1;
+
+
+        for (
+            let i = 0;
+            i < availableVehicles.length;
+            i++
+        ) {
+
+            const vehicle =
+                availableVehicles[i];
+
+
+            if (
+                vehicle.location ===
+                trip.origin &&
+
+                vehicle.availableAt <=
+                departureTime
+            ) {
+
+                /*
+                    Vybereme vozidlo,
+                    které čeká nejdéle.
+                */
+
+                if (
+                    !selectedVehicle ||
+                    vehicle.availableAt <
+                    selectedVehicle.availableAt
+                ) {
+
+                    selectedVehicle =
+                        vehicle;
+
+                    selectedIndex =
+                        i;
+
+                }
+
+            }
+
+        }
+
+
+        /*
+            Pokud žádné vozidlo
+            není k dispozici,
+            vytvoříme nové.
+        */
+
+        if (!selectedVehicle) {
+
+            selectedVehicle = {
+
+                id:
+                    vehicles.length + 1,
+
+                availableAt:
+                    0,
+
+                location:
+                    trip.origin,
+
+                trips:
+                    []
+
+            };
+
+
+            vehicles.push(
+                selectedVehicle
+            );
+
+            availableVehicles.push(
+                selectedVehicle
+            );
+
+        }
+
+
+        /*
+            Přiřadíme vozidlo ke spoji.
+        */
+
+        assignTripVehicle(
+            trip,
+            selectedVehicle
+        );
+
+
+        selectedVehicle.trips.push(
+            trip.id
+        );
+
+
+        /*
+            Spočítáme příjezd.
+        */
+
+        const arrivalTime =
+            getTripArrivalTime(
+                trip
+            );
+
+
+        const arrivalMinutes =
+            timeToMinutes(
+                arrivalTime
+            );
+
+
+        /*
+            Vozidlo je nyní na
+            opačné konečné.
+        */
+
+        selectedVehicle.availableAt =
+            arrivalMinutes;
+
+
+        selectedVehicle.location =
+            trip.destination;
+
+    }
+
+
+    /*
+        Uložíme výsledek.
+    */
+
+    lineFleetPlans.set(
+        String(lineData.line),
+        vehicles
+    );
+
+
+    console.log(
+        `Linka ${lineData.line}: potřebuje ${vehicles.length} vozidel.`
+    );
+
+
+    return vehicles;
+}
+
+
+/* =========================================
+   POČET POTŘEBNÝCH VOZIDEL
+========================================= */
+
+function getRequiredVehicleCount(
+    lineNumber
+) {
+
+    const plan =
+        lineFleetPlans.get(
+            String(lineNumber)
+        );
+
+
+    if (!plan) {
+        return 0;
+    }
+
+
+    return plan.length;
+}
+
+
+/* =========================================
+   PLÁN VOZIDEL LINKY
+========================================= */
+
+function getVehiclePlan(
+    lineNumber
+) {
+
+    return (
+        lineFleetPlans.get(
+            String(lineNumber)
+        ) || []
+    );
+
 }
 
 
@@ -615,7 +870,7 @@ function getTripVehicle(
 
 
 /* =========================================
-   OBRAT VOZIDLA
+   OBRAT
 ========================================= */
 
 function createTurnaround(
@@ -632,11 +887,6 @@ function createTurnaround(
 
     }
 
-
-    /*
-        Pokud jsme obrat už vytvořili,
-        vrátíme uložený výsledek.
-    */
 
     if (
         tripTurnarounds.has(
@@ -674,11 +924,6 @@ function createTurnaround(
     }
 
 
-    /*
-        STEJNÉ VOZIDLO
-        pokračuje na další spoj.
-    */
-
     assignTripVehicle(
         nextTrip,
         vehicle
@@ -696,7 +941,7 @@ function createTurnaround(
 
 
 /* =========================================
-   VYTVÁŘENÍ CELÉHO OBRATU
+   CELÝ OBRAT
 ========================================= */
 
 function buildVehicleRotation(
@@ -728,18 +973,10 @@ function buildVehicleRotation(
         i++
     ) {
 
-        /*
-            Přidáme současný spoj.
-        */
-
         rotation.push(
             currentTrip
         );
 
-
-        /*
-            Najdeme následující spoj.
-        */
 
         const nextTrip =
             findNextTrip(
@@ -752,10 +989,6 @@ function buildVehicleRotation(
             break;
         }
 
-
-        /*
-            Vozidlo pokračuje.
-        */
 
         const vehicle =
             getTripVehicle(
@@ -772,12 +1005,6 @@ function buildVehicleRotation(
 
         }
 
-
-        /*
-            Pokud se vrátíme
-            na stejný spoj,
-            zabráníme nekonečné smyčce.
-        */
 
         if (
             rotation.some(
@@ -803,7 +1030,7 @@ function buildVehicleRotation(
 
 
 /* =========================================
-   VŠECHNY SPOJE NA ZASTÁVCE
+   SPOJE NA ZASTÁVCE
 ========================================= */
 
 function getTripsAtStop(
@@ -862,7 +1089,7 @@ function getTripsAtStop(
 
 
 /* =========================================
-   SEŘAZENÍ SPOJŮ
+   SEŘAZENÍ
 ========================================= */
 
 function sortTripsByTime(
@@ -879,7 +1106,6 @@ function sortTripsByTime(
                     a.stopTime ||
                     a.departure
                 ) -
-
                 timeToMinutes(
                     b.stopTime ||
                     b.departure
@@ -893,7 +1119,7 @@ function sortTripsByTime(
 
 
 /* =========================================
-   RESET SYSTÉMU
+   RESET
 ========================================= */
 
 function resetTrips() {
@@ -904,11 +1130,13 @@ function resetTrips() {
 
     tripTurnarounds.clear();
 
+    lineFleetPlans.clear();
+
 }
 
 
 /* =========================================
-   DEBUG
+   DEBUG SPOJE
 ========================================= */
 
 function debugTrip(
@@ -975,6 +1203,62 @@ function debugTrip(
 
     console.log(
         "=========================="
+    );
+
+}
+
+
+/* =========================================
+   DEBUG VOZOVÉHO PARKU
+========================================= */
+
+function debugFleet(
+    lineNumber
+) {
+
+    const plan =
+        getVehiclePlan(
+            lineNumber
+        );
+
+
+    console.log(
+        `========== LINKA ${lineNumber} ==========`
+    );
+
+
+    console.log(
+        "Potřebný počet vozidel:",
+        plan.length
+    );
+
+
+    for (
+        const vehicle of plan
+    ) {
+
+        console.log(
+            "Vozidlo:",
+            vehicle.id
+        );
+
+
+        console.log(
+            "Počet spojů:",
+            vehicle.trips.length
+        );
+
+
+        console.log(
+            "Spoje:",
+            vehicle.trips
+        );
+
+    }
+
+
+    console.log(
+        "================================"
     );
 
 }
