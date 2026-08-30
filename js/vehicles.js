@@ -1,264 +1,232 @@
 /* =========================================
-   DPMA ONLINE – SYSTÉM VOZIDEL
+   DPMA ONLINE
+   VEHICLES.JS – FINÁLNÍ VERZE
 ========================================= */
-
-
-/*
-    Vozidla aktuálně přiřazená ke spojům.
-
-    KEY:
-        ID spoje
-
-    VALUE:
-        informace o vozidle
-*/
-
-const tripVehicles = new Map();
-
-
-/*
-    Evidenční čísla, která jsou právě
-    obsazená nějakým aktivním spojem.
-*/
-
-const assignedVehicles = new Set();
 
 
 /* =========================================
-   VYTVOŘENÍ EVIDENČNÍCH ČÍSEL
+   TYPY VOZIDEL
 ========================================= */
 
-function generateFleetNumbers(vehicleData) {
+const VEHICLE_TYPES = {
 
-    const numbers = [];
+    "Škoda 26TR": {
+        airConditioning: false,
+        from: 3104,
+        to: 3130
+    },
 
+    "Škoda 27TR": {
+        airConditioning: true,
+        from: 3400,
+        to: 3433
+    },
 
-    if (
-        !vehicleData.fleetNumbers ||
-        typeof vehicleData.fleetNumbers !== "object"
-    ) {
-        return numbers;
+    "Škoda 31TR": {
+        airConditioning: false,
+        from: 3209,
+        to: 3230
+    },
+
+    "Škoda 32TR": {
+        airConditioning: true,
+        from: 3300,
+        to: 3329
     }
 
-
-    const from =
-        Number(vehicleData.fleetNumbers.from);
-
-    const to =
-        Number(vehicleData.fleetNumbers.to);
-
-
-    if (
-        Number.isNaN(from) ||
-        Number.isNaN(to)
-    ) {
-        return numbers;
-    }
-
-
-    for (
-        let number = from;
-        number <= to;
-        number++
-    ) {
-
-        numbers.push(
-            String(number)
-        );
-
-    }
-
-
-    return numbers;
-}
+};
 
 
 /* =========================================
-   DOSTUPNÁ EVIDENČNÍ ČÍSLA
+   TYPY VOZIDEL PRO LINKY
 ========================================= */
 
-function getAvailableFleetNumbers(type) {
+const LINE_VEHICLE_TYPES = {
 
-    const vehicle =
-        vehiclesData[type];
+    "25": "Škoda 26TR",
 
+    "26": "Škoda 27TR",
 
-    if (!vehicle) {
-        return [];
-    }
+    "27": "Škoda 26TR",
 
+    "30": "Škoda 32TR",
 
-    const allNumbers =
-        generateFleetNumbers(vehicle);
+    "31": "Škoda 31TR",
 
+    "32": "Škoda 27TR",
 
-    return allNumbers.filter(
-        number =>
-            !assignedVehicles.has(number)
-    );
-}
+    "33": "Škoda 27TR",
+
+    "34": "Škoda 32TR",
+
+    "35": "Škoda 32TR",
+
+    "37": "Škoda 32TR",
+
+    "38": "Škoda 31TR"
+
+};
 
 
 /* =========================================
-   NÁHODNÉ VOZIDLO
+   POUŽITÁ EVIDENČNÍ ČÍSLA
 ========================================= */
 
-function getRandomVehicleType(line) {
-
-    const types =
-        lineVehiclesData[line];
+const usedFleetNumbers =
+    new Set();
 
 
-    if (
-        !types ||
-        types.length === 0
-    ) {
+/* =========================================
+   VOZIDLA
+========================================= */
 
-        console.warn(
-            "Pro linku " +
-            line +
-            " nejsou nastavena vozidla."
-        );
+const createdVehicles =
+    new Map();
 
+
+/* =========================================
+   NÁHODNÉ ČÍSLO
+========================================= */
+
+function getRandomFleetNumber(
+    vehicleType
+) {
+
+    const config =
+        VEHICLE_TYPES[
+            vehicleType
+        ];
+
+
+    if (!config) {
         return null;
     }
 
 
-    /*
-        Zamícháme seznam typů,
-        aby výběr nebyl vždy stejný.
-    */
-
-    const shuffled =
-        [...types].sort(
-            () => Math.random() - 0.5
-        );
+    const available = [];
 
 
-    /*
-        Zkusíme najít typ,
-        který má volné vozidlo.
-    */
+    for (
+        let number = config.from;
+        number <= config.to;
+        number++
+    ) {
 
-    for (const type of shuffled) {
+        if (
+            !usedFleetNumbers.has(
+                number
+            )
+        ) {
 
-        const available =
-            getAvailableFleetNumbers(
-                type
+            available.push(
+                number
             );
 
-
-        if (available.length > 0) {
-            return type;
         }
 
     }
 
 
-    console.warn(
-        "Na lince " +
-        line +
-        " není žádné volné vozidlo."
-    );
-
-
-    return null;
-}
-
-
-/* =========================================
-   PŘIDĚLENÍ VOZIDLA
-========================================= */
-
-function assignVehicleToDeparture(
-    departureId,
-    line
-) {
-
     /*
-        Pokud už spoj vozidlo má,
-        vrátíme ho.
+        Všechna čísla už byla použita.
     */
 
     if (
-        tripVehicles.has(
-            departureId
-        )
+        available.length === 0
     ) {
 
-        return tripVehicles.get(
-            departureId
-        );
-
-    }
-
-
-    const type =
-        getRandomVehicleType(
-            line
-        );
-
-
-    if (!type) {
         return null;
+
     }
 
 
-    const available =
-        getAvailableFleetNumbers(
-            type
+    const randomIndex =
+        Math.floor(
+            Math.random() *
+            available.length
         );
 
-
-    if (available.length === 0) {
-        return null;
-    }
-
-
-    /*
-        Náhodné evidenční číslo
-    */
 
     const fleetNumber =
         available[
-            Math.floor(
-                Math.random() *
-                available.length
-            )
+            randomIndex
         ];
 
 
-    /*
-        Označíme vozidlo jako obsazené.
-    */
-
-    assignedVehicles.add(
+    usedFleetNumbers.add(
         fleetNumber
     );
 
 
-    const vehicleData =
-        vehiclesData[type];
+    return fleetNumber;
+}
+
+
+/* =========================================
+   VYTVOŘENÍ VOZIDLA
+========================================= */
+
+function createVehicle(
+    vehicleType
+) {
+
+    const config =
+        VEHICLE_TYPES[
+            vehicleType
+        ];
+
+
+    if (!config) {
+
+        console.error(
+            "Neznámý typ vozidla:",
+            vehicleType
+        );
+
+        return null;
+
+    }
+
+
+    const fleetNumber =
+        getRandomFleetNumber(
+            vehicleType
+        );
+
+
+    /*
+        Už není volné evidenční číslo.
+    */
+
+    if (
+        fleetNumber === null
+    ) {
+
+        console.warn(
+            `Pro typ ${vehicleType} už nejsou volná evidenční čísla.`
+        );
+
+        return null;
+
+    }
 
 
     const vehicle = {
 
-        type: type,
-
         fleetNumber:
             fleetNumber,
 
-        category:
-            vehicleData.category,
+        type:
+            vehicleType,
 
         airConditioning:
-            vehicleData.airConditioning
+            config.airConditioning
 
     };
 
 
-    tripVehicles.set(
-        departureId,
+    createdVehicles.set(
+        fleetNumber,
         vehicle
     );
 
@@ -268,103 +236,147 @@ function assignVehicleToDeparture(
 
 
 /* =========================================
-   ZÍSKÁNÍ VOZIDLA SPOJE
+   TYP VOZIDLA PRO LINKU
 ========================================= */
 
-function getVehicleForDeparture(
-    departureId
+function getVehicleTypeForLine(
+    lineNumber
 ) {
 
-    return tripVehicles.get(
-        departureId
-    ) || null;
+    return (
+        LINE_VEHICLE_TYPES[
+            String(lineNumber)
+        ] || null
+    );
 
 }
 
 
 /* =========================================
-   PŘEVOD VOZIDLA NA DALŠÍ SPOJ
+   VOZIDLO PRO LINKU
 ========================================= */
 
-function transferVehicle(
-    oldTripId,
-    newTripId
+function createVehicleForLine(
+    lineNumber
 ) {
 
+    const vehicleType =
+        getVehicleTypeForLine(
+            lineNumber
+        );
+
+
+    if (!vehicleType) {
+
+        console.warn(
+            `Linka ${lineNumber} nemá nastavený typ vozidla.`
+        );
+
+        return null;
+
+    }
+
+
+    return createVehicle(
+        vehicleType
+    );
+}
+
+
+/* =========================================
+   VOZIDLO PRO SPOJ
+========================================= */
+
+function assignVehicleToDeparture(
+    tripId,
+    lineNumber
+) {
+
+    /*
+        Pokud už má spoj vozidlo,
+        nic nového nevytváříme.
+    */
+
+    if (
+        tripVehicles.has(
+            tripId
+        )
+    ) {
+
+        return tripVehicles.get(
+            tripId
+        );
+
+    }
+
+
     const vehicle =
-        tripVehicles.get(
-            oldTripId
+        createVehicleForLine(
+            lineNumber
         );
 
 
     if (!vehicle) {
-        return false;
+        return null;
     }
 
 
-    /*
-        Stejné vozidlo pokračuje
-        na další spoj.
-    */
-
     tripVehicles.set(
-        newTripId,
+        tripId,
         vehicle
     );
 
 
-    /*
-        Starý spoj už vozidlo
-        nevlastní.
-    */
-
-    tripVehicles.delete(
-        oldTripId
-    );
-
-
-    return true;
-}
-
-
-/* =========================================
-   UVOLNĚNÍ VOZIDLA
-========================================= */
-
-function releaseVehicle(
-    tripId
-) {
-
-    const vehicle =
-        tripVehicles.get(
+    const trip =
+        findTrip(
             tripId
         );
 
 
-    if (!vehicle) {
-        return;
+    if (trip) {
+
+        trip.vehicle =
+            vehicle;
+
     }
 
 
-    /*
-        Evidenční číslo se znovu
-        stane dostupným.
-    */
-
-    assignedVehicles.delete(
-        vehicle.fleetNumber
-    );
+    return vehicle;
+}
 
 
-    tripVehicles.delete(
-        tripId
+/* =========================================
+   SEZNAM VOZIDEL
+========================================= */
+
+function getAllVehicles() {
+
+    return Array.from(
+        createdVehicles.values()
     );
 
 }
 
 
 /* =========================================
-   KONTROLA KLIMATIZACE
+   NAJÍT VOZIDLO
+========================================= */
+
+function findVehicle(
+    fleetNumber
+) {
+
+    return (
+        createdVehicles.get(
+            Number(fleetNumber)
+        ) || null
+    );
+
+}
+
+
+/* =========================================
+   KLIMATIZACE
 ========================================= */
 
 function hasAirConditioning(
@@ -376,73 +388,77 @@ function hasAirConditioning(
     }
 
 
-    return vehicle.airConditioning === true;
+    return (
+        vehicle.airConditioning ===
+        true
+    );
+
 }
 
 
 /* =========================================
-   IKONA KLIMATIZACE
+   RESET VOZIDEL
 ========================================= */
 
-function getAirConditioningIcon(
-    vehicle
+function resetVehicles() {
+
+    usedFleetNumbers.clear();
+
+    createdVehicles.clear();
+
+}
+
+
+/* =========================================
+   INFORMACE O TYPU
+========================================= */
+
+function getVehicleTypeInfo(
+    vehicleType
 ) {
 
-    if (
-        hasAirConditioning(
-            vehicle
-        )
+    return (
+        VEHICLE_TYPES[
+            vehicleType
+        ] || null
+    );
+
+}
+
+
+/* =========================================
+   DEBUG
+========================================= */
+
+function debugVehicles() {
+
+    console.log(
+        "========== VOZIDLA =========="
+    );
+
+
+    for (
+        const vehicle
+        of createdVehicles.values()
     ) {
 
-        return "❄️";
+        console.log(
 
-    }
-
-
-    return "";
-
-}
-
-
-/* =========================================
-   INFORMACE O VOZIDLE
-========================================= */
-
-function getVehicleInfo(
-    vehicle
-) {
-
-    if (!vehicle) {
-
-        return {
-
-            type: "Neuvedeno",
-
-            fleetNumber: "—",
-
-            category: "—",
-
-            airConditioning: false
-
-        };
-
-    }
-
-
-    return {
-
-        type:
-            vehicle.type,
-
-        fleetNumber:
             vehicle.fleetNumber,
-
-        category:
-            vehicle.category,
-
-        airConditioning:
+            "|",
+            vehicle.type,
+            "|",
             vehicle.airConditioning
+                ? "KLIMA"
+                : "BEZ KLIMY"
 
-    };
+        );
+
+    }
+
+
+    console.log(
+        "============================="
+    );
 
 }
