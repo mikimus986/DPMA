@@ -1,87 +1,155 @@
-const stopSelect =
-    document.getElementById("stopSelect");
+/* =========================================
+   DPMA ONLINE
+   HLAVNÍ STARTOVACÍ SCRIPT
+========================================= */
 
-const stopPanel =
-    document.getElementById("stopPanel");
-
-const stopName =
-    document.getElementById("stopName");
-
-const departuresContainer =
-    document.getElementById("departures");
+let vehiclesData = {};
+let lineVehiclesData = {};
 
 
-async function startApp() {
+/* =========================================
+   NAČTENÍ VOZIDEL
+========================================= */
+
+async function loadVehiclesData() {
 
     try {
 
-        await loadBaseData();
+        const response =
+            await fetch(
+                "data/vehicles.json"
+            );
 
-        loadStops();
+        if (!response.ok) {
+            throw new Error(
+                "vehicles.json nebyl nalezen."
+            );
+        }
+
+        vehiclesData =
+            await response.json();
+
+        console.log(
+            "✓ Vozidla načtena"
+        );
 
     } catch (error) {
 
-        console.error(error);
+        console.error(
+            "Chyba vehicles.json:",
+            error
+        );
 
-        departuresContainer.innerHTML =
-            `<div class="loading">
-                Nepodařilo se načíst data.
-            </div>`;
     }
 }
 
 
-function loadStops() {
+/* =========================================
+   NAČTENÍ PŘIŘAZENÍ LINEK
+========================================= */
 
-    Object.keys(stopsData)
-        .sort()
-        .forEach(stop => {
+async function loadLineVehiclesData() {
 
-            const option =
-                document.createElement("option");
+    try {
 
-            option.value = stop;
+        const response =
+            await fetch(
+                "data/line-vehicles.json"
+            );
 
-            option.textContent = stop;
+        if (!response.ok) {
+            throw new Error(
+                "line-vehicles.json nebyl nalezen."
+            );
+        }
 
-            stopSelect.appendChild(option);
+        lineVehiclesData =
+            await response.json();
 
-        });
+        console.log(
+            "✓ Přiřazení vozidel načteno"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Chyba line-vehicles.json:",
+            error
+        );
+
+    }
+}
+
+
+/* =========================================
+   START CELÉHO SYSTÉMU
+========================================= */
+
+async function initializeApp() {
+
+    console.log(
+        "=============================="
+    );
+
+    console.log(
+        "DPMA ONLINE – START"
+    );
+
+    console.log(
+        "=============================="
+    );
+
+
+    /*
+        Nejdříve načteme vozidla
+        a jejich přiřazení.
+    */
+
+    await loadVehiclesData();
+
+    await loadLineVehiclesData();
+
+
+    /*
+        Potom načteme všechny jízdní řády.
+    */
+
+    const lines =
+        await initializeTimetable();
+
+
+    console.log(
+        `✓ Systém připraven – ${lines.length} linek`
+    );
+
+
+    /*
+        Pokud existuje stránka
+        departures.html, spustíme
+        odjezdy.
+    */
+
+    if (
+        typeof initializeDepartures ===
+        "function"
+    ) {
+
+        initializeDepartures();
+
+    }
 
 }
 
 
-stopSelect.addEventListener(
-    "change",
+/* =========================================
+   SPUŠTĚNÍ
+========================================= */
+
+document.addEventListener(
+    "DOMContentLoaded",
     () => {
 
-        const stop =
-            stopSelect.value;
-
-
-        if (!stop) {
-
-            stopPanel.classList.add(
-                "hidden"
-            );
-
-            return;
-        }
-
-
-        stopPanel.classList.remove(
-            "hidden"
-        );
-
-
-        stopName.textContent =
-            stop;
-
-
-        renderDepartures(stop);
+        initializeApp();
 
     }
 );
-
-
-startApp();
