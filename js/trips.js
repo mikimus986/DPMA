@@ -1,48 +1,30 @@
 /* =========================================
    DPMA ONLINE
-   TRIPS.JS – FINÁLNÍ VERZE
-   + AUTOMATICKÝ VÝPOČET VOZIDEL
-========================================= */
-
-
-/* =========================================
-   ULOŽENÉ SPOJE
+   TRIPS.JS
+   PŘÍMÉ ČASY ZE SKUTEČNÉHO JÍZDNÍHO ŘÁDU
 ========================================= */
 
 const allTrips = new Map();
-
-
-/* =========================================
-   VOZIDLA SPOJŮ
-========================================= */
-
 const tripVehicles = new Map();
-
-
-/* =========================================
-   OBRATY
-========================================= */
-
 const tripTurnarounds = new Map();
-
-
-/* =========================================
-   VYPOČTENÉ VOZOVÉ PARKY LINEK
-========================================= */
-
 const lineFleetPlans = new Map();
 
 
 /* =========================================
-   PŘEVOD ČASU
+   ČAS
 ========================================= */
 
 function timeToMinutes(time) {
 
-    const [hours, minutes] =
+    if (!time) return null;
+
+    const parts =
         time.split(":").map(Number);
 
-    return hours * 60 + minutes;
+    return (
+        parts[0] * 60 +
+        parts[1]
+    );
 }
 
 
@@ -92,49 +74,98 @@ function getCurrentDayType() {
 function buildTrip(
     lineData,
     direction,
-    departure
+    index
 ) {
 
-    const departureMinutes =
-        timeToMinutes(
-            departure
-        );
+    const stopNames =
+        direction.stops;
+
+
+    const departures =
+        direction.departures;
+
+
+    if (
+        !Array.isArray(stopNames)
+    ) {
+        return null;
+    }
+
+
+    const firstStop =
+        stopNames[0];
+
+
+    const firstTimes =
+        departures[firstStop];
+
+
+    if (
+        !Array.isArray(firstTimes) ||
+        !firstTimes[index]
+    ) {
+
+        return null;
+
+    }
+
+
+    const departure =
+        firstTimes[index];
 
 
     const stops = [];
 
 
     for (
-        const stop of direction.stops
+        const stopName
+        of stopNames
     ) {
 
-        const stopTime =
-            departureMinutes +
-            Number(stop.min || 0);
+        const times =
+            departures[stopName];
+
+
+        if (
+            !Array.isArray(times)
+        ) {
+            continue;
+        }
+
+
+        const time =
+            times[index];
+
+
+        if (!time) {
+            continue;
+        }
 
 
         stops.push({
 
             name:
-                stop.name,
+                stopName,
 
             time:
-                minutesToTime(
-                    stopTime
-                ),
-
-            offset:
-                Number(
-                    stop.min || 0
-                )
+                time
 
         });
 
     }
 
 
+    if (
+        stops.length === 0
+    ) {
+
+        return null;
+
+    }
+
+
     const tripId =
-        `${lineData.line}_${direction.id}_${departure}`;
+        `${lineData.line}_${direction.id}_${departure}_${index}`;
 
 
     return {
@@ -171,7 +202,7 @@ function buildTrip(
 
 
 /* =========================================
-   VYTVOŘENÍ VŠECH SPOJŮ
+   VYTVOŘENÍ SPOJŮ LINKY
 ========================================= */
 
 function createTrips(
@@ -200,33 +231,93 @@ function createTrips(
         of lineData.directions
     ) {
 
-        const timetable =
-            direction
-                .timetable
-                ?. [dayType];
+        /*
+            V novém formátu může být
+            jízdní řád rozdělen podle dnů.
+        */
+
+        let departuresData =
+            direction;
+
+
+        if (
+            direction.timetable
+        ) {
+
+            departuresData =
+                direction.timetable[
+                    dayType
+                ];
+
+        }
+
+
+        if (
+            !departuresData
+        ) {
+
+            continue;
+
+        }
+
+
+        const stopNames =
+            departuresData.stops;
+
+
+        const departures =
+            departuresData.departures;
 
 
         if (
             !Array.isArray(
-                timetable
+                stopNames
+            ) ||
+            !departures
+        ) {
+
+            continue;
+
+        }
+
+
+        const firstStop =
+            stopNames[0];
+
+
+        const firstTimes =
+            departures[firstStop];
+
+
+        if (
+            !Array.isArray(
+                firstTimes
             )
         ) {
 
             continue;
+
         }
 
 
         for (
-            const departure
-            of timetable
+            let i = 0;
+            i < firstTimes.length;
+            i++
         ) {
 
             const trip =
-                buildTrip(
+                buildTripFromData(
                     lineData,
                     direction,
-                    departure
+                    departuresData,
+                    i
                 );
+
+
+            if (!trip) {
+                continue;
+            }
 
 
             if (
@@ -261,8 +352,7 @@ function createTrips(
 
     /*
         Po vytvoření spojů
-        automaticky spočítáme
-        potřebný počet vozidel.
+        spočítáme potřebný počet vozidel.
     */
 
     calculateRequiredVehicles(
@@ -272,6 +362,134 @@ function createTrips(
 
 
     return lineTrips;
+}
+
+
+/* =========================================
+   VYTVOŘENÍ SPOJE Z DAT
+========================================= */
+
+function buildTripFromData(
+    lineData,
+    direction,
+    data,
+    index
+) {
+
+    const stopNames =
+        data.stops;
+
+
+    const departures =
+        data.departures;
+
+
+    if (
+        !Array.isArray(stopNames)
+    ) {
+        return null;
+    }
+
+
+    const firstStop =
+        stopNames[0];
+
+
+    const firstTimes =
+        departures[firstStop];
+
+
+    if (
+        !Array.isArray(firstTimes)
+    ) {
+        return null;
+    }
+
+
+    const departure =
+        firstTimes[index];
+
+
+    if (!departure) {
+        return null;
+    }
+
+
+    const stops = [];
+
+
+    for (
+        const stopName
+        of stopNames
+    ) {
+
+        const times =
+            departures[stopName];
+
+
+        if (
+            !Array.isArray(times)
+        ) {
+            continue;
+        }
+
+
+        const time =
+            times[index];
+
+
+        if (!time) {
+            continue;
+        }
+
+
+        stops.push({
+
+            name:
+                stopName,
+
+            time:
+                time
+
+        });
+
+    }
+
+
+    const tripId =
+        `${lineData.line}_${direction.id}_${departure}_${index}`;
+
+
+    return {
+
+        id:
+            tripId,
+
+        line:
+            String(lineData.line),
+
+        directionId:
+            direction.id,
+
+        origin:
+            direction.origin,
+
+        destination:
+            direction.destination,
+
+        departure:
+            departure,
+
+        stops:
+            stops,
+
+        vehicle:
+            null,
+
+        delay:
+            null
+
+    };
 }
 
 
@@ -309,7 +527,7 @@ function getAllTripsForLine(
 
 
 /* =========================================
-   NAJÍT SPOJ
+   SPOJ PODLE ID
 ========================================= */
 
 function findTrip(
@@ -447,96 +665,78 @@ function findNextTrip(
         );
 
 
-    const oppositeDirection =
+    const opposite =
         getOppositeDirection(
             lineData,
             trip
         );
 
 
-    if (!oppositeDirection) {
+    if (!opposite) {
         return null;
     }
 
 
-    const dayType =
-        getCurrentDayType();
+    /*
+        Získáme skutečné spoje
+        opačného směru.
+    */
+
+    const trips =
+        createTrips(
+            lineData
+        );
 
 
-    const timetable =
-        oppositeDirection
-            .timetable
-            ?. [dayType];
+    const candidates =
+        trips.filter(
+            candidate => {
+
+                if (
+                    candidate.directionId !==
+                    opposite.id
+                ) {
+                    return false;
+                }
 
 
-    if (
-        !Array.isArray(
-            timetable
-        )
-    ) {
-
-        return null;
-
-    }
-
-
-    for (
-        const departure
-        of timetable
-    ) {
-
-        const departureMinutes =
-            timeToMinutes(
-                departure
-            );
-
-
-        if (
-            departureMinutes >=
-            arrivalMinutes
-        ) {
-
-            const tripId =
-                `${lineData.line}_${oppositeDirection.id}_${departure}`;
-
-
-            let nextTrip =
-                allTrips.get(
-                    tripId
-                );
-
-
-            if (!nextTrip) {
-
-                nextTrip =
-                    buildTrip(
-                        lineData,
-                        oppositeDirection,
-                        departure
-                    );
-
-
-                allTrips.set(
-                    nextTrip.id,
-                    nextTrip
+                return (
+                    timeToMinutes(
+                        candidate.departure
+                    ) >=
+                    arrivalMinutes
                 );
 
             }
+        );
 
 
-            return nextTrip;
+    candidates.sort(
+        (a, b) => {
+
+            return (
+                timeToMinutes(
+                    a.departure
+                ) -
+                timeToMinutes(
+                    b.departure
+                )
+            );
 
         }
+    );
 
-    }
 
+    return (
+        candidates[0] ||
+        null
+    );
 
-    return null;
 }
 
 
 /* =========================================
-   AUTOMATICKÝ VÝPOČET POTŘEBNÉHO POČTU VOZŮ
+   AUTOMATICKÝ VÝPOČET VOZIDEL
 ========================================= */
 
 function calculateRequiredVehicles(
@@ -550,17 +750,17 @@ function calculateRequiredVehicles(
         trips.length === 0
     ) {
 
-        return null;
+        return [];
 
     }
 
 
     /*
-        Seřadíme všechny spoje
-        podle odjezdu.
+        Všechny spoje obou směrů
+        seřadíme podle času.
     */
 
-    const sortedTrips =
+    const sorted =
         [...trips].sort(
             (a, b) => {
 
@@ -577,92 +777,60 @@ function calculateRequiredVehicles(
         );
 
 
-    /*
-        Vozidla, která máme
-        momentálně k dispozici.
-    */
-
-    const availableVehicles = [];
-
-
-    /*
-        Výsledný plán.
-    */
-
     const vehicles = [];
 
 
     /*
-        Každý prvek obsahuje:
+        Každé vozidlo obsahuje:
 
-        vehicleId
-        availableAt
+        id
         location
+        availableAt
         trips
     */
 
 
     for (
-        const trip
-        of sortedTrips
+        const trip of sorted
     ) {
 
-        const departureTime =
+        const departure =
             timeToMinutes(
                 trip.departure
             );
 
 
-        /*
-            Hledáme vozidlo,
-            které:
-
-            1. je už na místě odjezdu
-            2. přijelo před odjezdem
-        */
-
-        let selectedVehicle =
+        let selected =
             null;
 
 
-        let selectedIndex =
-            -1;
-
+        /*
+            Hledáme vozidlo,
+            které už je na místě
+            výchozí zastávky.
+        */
 
         for (
-            let i = 0;
-            i < availableVehicles.length;
-            i++
+            const vehicle
+            of vehicles
         ) {
-
-            const vehicle =
-                availableVehicles[i];
-
 
             if (
                 vehicle.location ===
                 trip.origin &&
 
                 vehicle.availableAt <=
-                departureTime
+                departure
             ) {
 
-                /*
-                    Vybereme vozidlo,
-                    které čeká nejdéle.
-                */
-
                 if (
-                    !selectedVehicle ||
+                    !selected ||
                     vehicle.availableAt <
-                    selectedVehicle.availableAt
+                    selected.availableAt
                 ) {
 
-                    selectedVehicle =
+                    selected =
                         vehicle;
-
-                    selectedIndex =
-                        i;
 
                 }
 
@@ -672,23 +840,22 @@ function calculateRequiredVehicles(
 
 
         /*
-            Pokud žádné vozidlo
-            není k dispozici,
+            Pokud žádné není,
             vytvoříme nové.
         */
 
-        if (!selectedVehicle) {
+        if (!selected) {
 
-            selectedVehicle = {
+            selected = {
 
                 id:
                     vehicles.length + 1,
 
-                availableAt:
-                    0,
-
                 location:
                     trip.origin,
+
+                availableAt:
+                    0,
 
                 trips:
                     []
@@ -697,65 +864,43 @@ function calculateRequiredVehicles(
 
 
             vehicles.push(
-                selectedVehicle
-            );
-
-            availableVehicles.push(
-                selectedVehicle
+                selected
             );
 
         }
 
 
         /*
-            Přiřadíme vozidlo ke spoji.
+            Přiřazení spoje.
         */
 
-        assignTripVehicle(
-            trip,
-            selectedVehicle
-        );
-
-
-        selectedVehicle.trips.push(
+        selected.trips.push(
             trip.id
         );
 
 
         /*
-            Spočítáme příjezd.
+            Vozidlo přijede
+            na konečnou.
         */
 
-        const arrivalTime =
+        const arrival =
             getTripArrivalTime(
                 trip
             );
 
 
-        const arrivalMinutes =
+        selected.availableAt =
             timeToMinutes(
-                arrivalTime
+                arrival
             );
 
 
-        /*
-            Vozidlo je nyní na
-            opačné konečné.
-        */
-
-        selectedVehicle.availableAt =
-            arrivalMinutes;
-
-
-        selectedVehicle.location =
+        selected.location =
             trip.destination;
 
     }
 
-
-    /*
-        Uložíme výsledek.
-    */
 
     lineFleetPlans.set(
         String(lineData.line),
@@ -764,7 +909,7 @@ function calculateRequiredVehicles(
 
 
     console.log(
-        `Linka ${lineData.line}: potřebuje ${vehicles.length} vozidel.`
+        `Linka ${lineData.line}: ${vehicles.length} vozidel`
     );
 
 
@@ -773,7 +918,7 @@ function calculateRequiredVehicles(
 
 
 /* =========================================
-   POČET POTŘEBNÝCH VOZIDEL
+   POČET VOZIDEL
 ========================================= */
 
 function getRequiredVehicleCount(
@@ -786,17 +931,15 @@ function getRequiredVehicleCount(
         );
 
 
-    if (!plan) {
-        return 0;
-    }
+    return plan
+        ? plan.length
+        : 0;
 
-
-    return plan.length;
 }
 
 
 /* =========================================
-   PLÁN VOZIDEL LINKY
+   PLÁN VOZIDEL
 ========================================= */
 
 function getVehiclePlan(
@@ -813,7 +956,7 @@ function getVehiclePlan(
 
 
 /* =========================================
-   PŘIŘAZENÍ VOZIDLA
+   PŘIŘAZENÍ VOZIDLA KE SPOJI
 ========================================= */
 
 function assignTripVehicle(
@@ -839,6 +982,19 @@ function assignTripVehicle(
         trip.id,
         vehicle
     );
+
+
+    if (
+        !vehicle.trips.includes(
+            trip.id
+        )
+    ) {
+
+        vehicle.trips.push(
+            trip.id
+        );
+
+    }
 
 
     return true;
@@ -870,166 +1026,6 @@ function getTripVehicle(
 
 
 /* =========================================
-   OBRAT
-========================================= */
-
-function createTurnaround(
-    lineData,
-    trip
-) {
-
-    if (
-        !lineData ||
-        !trip
-    ) {
-
-        return null;
-
-    }
-
-
-    if (
-        tripTurnarounds.has(
-            trip.id
-        )
-    ) {
-
-        return tripTurnarounds.get(
-            trip.id
-        );
-
-    }
-
-
-    const nextTrip =
-        findNextTrip(
-            lineData,
-            trip
-        );
-
-
-    if (!nextTrip) {
-        return null;
-    }
-
-
-    const vehicle =
-        getTripVehicle(
-            trip
-        );
-
-
-    if (!vehicle) {
-        return null;
-    }
-
-
-    assignTripVehicle(
-        nextTrip,
-        vehicle
-    );
-
-
-    tripTurnarounds.set(
-        trip.id,
-        nextTrip
-    );
-
-
-    return nextTrip;
-}
-
-
-/* =========================================
-   CELÝ OBRAT
-========================================= */
-
-function buildVehicleRotation(
-    lineData,
-    firstTrip,
-    maxTrips = 50
-) {
-
-    const rotation = [];
-
-
-    if (
-        !lineData ||
-        !firstTrip
-    ) {
-
-        return rotation;
-
-    }
-
-
-    let currentTrip =
-        firstTrip;
-
-
-    for (
-        let i = 0;
-        i < maxTrips;
-        i++
-    ) {
-
-        rotation.push(
-            currentTrip
-        );
-
-
-        const nextTrip =
-            findNextTrip(
-                lineData,
-                currentTrip
-            );
-
-
-        if (!nextTrip) {
-            break;
-        }
-
-
-        const vehicle =
-            getTripVehicle(
-                currentTrip
-            );
-
-
-        if (vehicle) {
-
-            assignTripVehicle(
-                nextTrip,
-                vehicle
-            );
-
-        }
-
-
-        if (
-            rotation.some(
-                trip =>
-                    trip.id ===
-                    nextTrip.id
-            )
-        ) {
-
-            break;
-
-        }
-
-
-        currentTrip =
-            nextTrip;
-
-    }
-
-
-    return rotation;
-}
-
-
-/* =========================================
    SPOJE NA ZASTÁVCE
 ========================================= */
 
@@ -1038,53 +1034,47 @@ function getTripsAtStop(
     stopName
 ) {
 
-    if (!lineData) {
-        return [];
-    }
-
-
     const trips =
         getAllTripsForLine(
             lineData
         );
 
 
-    const result = [];
+    return trips
+        .filter(
+            trip =>
+                trip.stops.some(
+                    stop =>
+                        stop.name ===
+                        stopName
+                )
+        )
+        .map(
+            trip => {
+
+                const stop =
+                    trip.stops.find(
+                        stop =>
+                            stop.name ===
+                            stopName
+                    );
 
 
-    for (
-        const trip of trips
-    ) {
+                return {
 
-        const stop =
-            trip.stops.find(
-                currentStop =>
-                    currentStop.name ===
-                    stopName
-            );
+                    ...trip,
 
+                    stop:
+                        stopName,
 
-        if (!stop) {
-            continue;
-        }
+                    stopTime:
+                        stop.time
 
+                };
 
-        result.push({
+            }
+        );
 
-            ...trip,
-
-            stop:
-                stopName,
-
-            stopTime:
-                stop.time
-
-        });
-
-    }
-
-
-    return result;
 }
 
 
@@ -1096,9 +1086,7 @@ function sortTripsByTime(
     trips
 ) {
 
-    return [
-        ...trips
-    ].sort(
+    return [...trips].sort(
         (a, b) => {
 
             return (
@@ -1136,80 +1124,7 @@ function resetTrips() {
 
 
 /* =========================================
-   DEBUG SPOJE
-========================================= */
-
-function debugTrip(
-    trip
-) {
-
-    if (!trip) {
-
-        console.log(
-            "Spoj neexistuje."
-        );
-
-        return;
-
-    }
-
-
-    console.log(
-        "========== SPOJ =========="
-    );
-
-
-    console.log(
-        "ID:",
-        trip.id
-    );
-
-
-    console.log(
-        "Linka:",
-        trip.line
-    );
-
-
-    console.log(
-        "Směr:",
-        trip.origin,
-        "→",
-        trip.destination
-    );
-
-
-    console.log(
-        "Odjezd:",
-        trip.departure
-    );
-
-
-    console.log(
-        "Příjezd:",
-        getTripArrivalTime(
-            trip
-        )
-    );
-
-
-    console.log(
-        "Vozidlo:",
-        getTripVehicle(
-            trip
-        )
-    );
-
-
-    console.log(
-        "=========================="
-    );
-
-}
-
-
-/* =========================================
-   DEBUG VOZOVÉHO PARKU
+   DEBUG
 ========================================= */
 
 function debugFleet(
@@ -1223,7 +1138,7 @@ function debugFleet(
 
 
     console.log(
-        `========== LINKA ${lineNumber} ==========`
+        `===== LINKA ${lineNumber} =====`
     );
 
 
@@ -1250,15 +1165,9 @@ function debugFleet(
 
 
         console.log(
-            "Spoje:",
             vehicle.trips
         );
 
     }
-
-
-    console.log(
-        "================================"
-    );
 
 }
