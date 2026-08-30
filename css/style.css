@@ -1,256 +1,500 @@
+/* =========================================
+   ZÁKLAD
+========================================= */
+
 * {
     box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
+
 
 body {
-    margin: 0;
-    font-family: Arial, Helvetica, sans-serif;
-    background: #eef1f4;
-    color: #18222d;
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+
+    background: #f2f4f7;
+
+    color: #202124;
+
+    min-height: 100vh;
 }
 
 
-/* HEADER */
+/* =========================================
+   HEADER
+========================================= */
 
-.topbar {
-    height: 76px;
-    background: #111820;
+.header {
+
+    background: #111827;
+
     color: white;
 
+    height: 64px;
+
     display: flex;
-    justify-content: space-between;
+
     align-items: center;
 
-    padding: 0 35px;
+    justify-content: space-between;
+
+    padding:
+        0 40px;
+
 }
+
 
 .logo {
-    font-size: 28px;
+
+    font-size: 25px;
+
     font-weight: 800;
-}
 
-.logo span {
-    font-weight: 400;
-    opacity: 0.65;
-    margin-left: 5px;
-}
+    letter-spacing: 2px;
 
-.clock {
-    text-align: right;
-}
-
-#currentTime {
-    font-size: 22px;
-    font-weight: bold;
-}
-
-#currentDate {
-    font-size: 13px;
-    opacity: 0.65;
 }
 
 
-/* MAIN */
-
-main {
-    width: min(1100px, 94%);
-    margin: 35px auto;
-}
-
-
-/* SEARCH */
-
-.search-section {
-    background: white;
-    padding: 30px;
-    border-radius: 15px;
-
-    box-shadow: 0 4px 20px rgba(0,0,0,0.07);
-}
-
-.search-section h1 {
-    margin: 0 0 5px;
-}
-
-.subtitle {
-    color: #687582;
-}
-
-#stopSelect {
-    width: 100%;
-    padding: 15px;
-
-    border: 1px solid #d3d9df;
-    border-radius: 10px;
-
-    font-size: 16px;
-    background: white;
-}
-
-
-/* STOP */
-
-.stop-panel {
-    margin-top: 25px;
-
-    background: white;
-
-    border-radius: 15px;
-
-    overflow: hidden;
-
-    box-shadow: 0 4px 20px rgba(0,0,0,0.07);
-}
-
-.stop-header {
-    padding: 25px;
+nav {
 
     display: flex;
-    justify-content: space-between;
+
+    gap: 8px;
+
+}
+
+
+nav a {
+
+    color: #d1d5db;
+
+    text-decoration: none;
+
+    padding:
+        10px 14px;
+
+    border-radius: 8px;
+
+    transition: 0.2s;
+
+}
+
+
+nav a:hover {
+
+    background: #374151;
+
+    color: white;
+
+}
+
+
+nav a.active {
+
+    background: white;
+
+    color: #111827;
+
+}
+
+
+/* =========================================
+   OBSAH
+========================================= */
+
+.container {
+
+    width: min(
+        1100px,
+        calc(100% - 32px)
+    );
+
+    margin:
+        40px auto;
+
+}
+
+
+.page-title {
+
+    margin-bottom: 25px;
+
+}
+
+
+.page-title h1 {
+
+    font-size: 34px;
+
+    margin-bottom: 8px;
+
+}
+
+
+.page-title p {
+
+    color: #6b7280;
+
+}
+
+
+/* =========================================
+   VÝBĚR ZASTÁVKY
+========================================= */
+
+.stop-selector {
+
+    background: white;
+
+    padding: 20px;
+
+    border-radius: 14px;
+
+    box-shadow:
+        0 3px 12px
+        rgba(0, 0, 0, 0.06);
+
+    display: flex;
+
     align-items: center;
 
-    border-bottom: 1px solid #e5e8eb;
-}
+    gap: 12px;
 
-.small-title {
-    font-size: 12px;
-    color: #7b8792;
-    font-weight: bold;
-}
+    margin-bottom: 18px;
 
-.stop-header h2 {
-    margin: 5px 0 0;
 }
 
 
-/* DEPARTURE */
+.stop-selector label {
+
+    font-weight: 700;
+
+}
+
+
+#stopSelect {
+
+    flex: 1;
+
+    min-width: 200px;
+
+    padding: 12px;
+
+    border:
+        1px solid #d1d5db;
+
+    border-radius: 8px;
+
+    background: white;
+
+    font-size: 15px;
+
+}
+
+
+#refreshButton {
+
+    border: none;
+
+    background: #111827;
+
+    color: white;
+
+    padding:
+        12px 18px;
+
+    border-radius: 8px;
+
+    cursor: pointer;
+
+    font-weight: 700;
+
+}
+
+
+#refreshButton:hover {
+
+    background: #374151;
+
+}
+
+
+/* =========================================
+   STATUS
+========================================= */
+
+.status {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    color: #6b7280;
+
+    font-size: 14px;
+
+    margin-bottom: 12px;
+
+}
+
+
+/* =========================================
+   ODJEDY
+========================================= */
+
+.departures-container {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 10px;
+
+}
+
 
 .departure {
-    padding: 18px 25px;
 
-    border-bottom: 1px solid #e8ebee;
+    background: white;
+
+    border-radius: 14px;
+
+    padding:
+        18px 20px;
 
     display: grid;
 
     grid-template-columns:
-        80px
+        70px
         1fr
-        100px
-        100px
         120px
-        90px;
+        100px
+        190px;
+
+    align-items: center;
 
     gap: 15px;
 
-    align-items: center;
+    box-shadow:
+        0 2px 8px
+        rgba(0, 0, 0, 0.05);
+
+    cursor: pointer;
+
+    transition:
+        transform 0.15s,
+        box-shadow 0.15s;
+
 }
 
-.departure:last-child {
-    border-bottom: none;
+
+.departure:hover {
+
+    transform:
+        translateY(-2px);
+
+    box-shadow:
+        0 5px 15px
+        rgba(0, 0, 0, 0.09);
+
 }
 
+
+/* =========================================
+   LINKA
+========================================= */
 
 .line {
+
     font-size: 22px;
-    font-weight: bold;
+
+    font-weight: 800;
+
 }
+
+
+/* =========================================
+   CÍL
+========================================= */
 
 .direction {
+
+    font-weight: 700;
+
     font-size: 17px;
+
 }
+
+
+/* =========================================
+   ČAS
+========================================= */
 
 .time {
-    font-size: 20px;
-    font-weight: bold;
+
+    font-size: 16px;
+
+    font-weight: 700;
+
 }
+
+
+/* =========================================
+   ZPOŽDĚNÍ
+========================================= */
 
 .delay {
-    font-weight: bold;
+
+    font-weight: 700;
+
 }
+
 
 .delay.ok {
+
     color: #16803c;
+
 }
+
 
 .delay.warning {
-    color: #c77b00;
+
+    color: #b77900;
+
 }
+
 
 .delay.bad {
+
     color: #c62828;
+
 }
 
-.platform {
-    color: #52616d;
-}
+
+/* =========================================
+   VOZIDLO
+========================================= */
 
 .vehicle {
-    font-size: 14px;
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 10px;
+
 }
+
 
 .vehicle-number {
-    font-weight: bold;
+
+    font-weight: 800;
+
+    font-size: 17px;
+
 }
+
 
 .air {
-    margin-left: 4px;
+
+    margin-left: 5px;
+
 }
 
 
-/* LOADING */
+/* =========================================
+   LOADING
+========================================= */
 
 .loading {
+
+    background: white;
+
+    border-radius: 14px;
+
     padding: 30px;
+
     text-align: center;
-    color: #788692;
+
+    color: #6b7280;
+
 }
 
 
-/* HIDDEN */
-
-.hidden {
-    display: none;
-}
-
-
-/* FOOTER */
+/* =========================================
+   FOOTER
+========================================= */
 
 footer {
-    text-align: center;
-    padding: 30px;
 
-    color: #7b8792;
-    font-size: 13px;
+    text-align: center;
+
+    color: #9ca3af;
+
+    padding:
+        30px 20px;
+
 }
 
 
-/* MOBILE */
+/* =========================================
+   MOBIL
+========================================= */
 
-@media (max-width: 750px) {
+@media (
+    max-width: 800px
+) {
 
-    .topbar {
-        padding: 0 18px;
+    .header {
+
+        height: auto;
+
+        padding:
+            15px 20px;
+
+        flex-direction: column;
+
+        gap: 12px;
+
     }
 
-    .logo {
-        font-size: 21px;
+
+    nav {
+
+        flex-wrap: wrap;
+
+        justify-content: center;
+
     }
 
-    .clock {
-        display: none;
+
+    .stop-selector {
+
+        flex-direction: column;
+
+        align-items: stretch;
+
     }
+
 
     .departure {
+
         grid-template-columns:
             55px
             1fr
-            70px;
+            90px;
 
-        gap: 10px;
     }
 
-    .platform,
-    .vehicle {
-        grid-column: span 1;
+
+    .delay {
+
+        display: none;
+
     }
+
+
 }
