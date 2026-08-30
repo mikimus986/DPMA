@@ -1,70 +1,334 @@
-const activeTrips = new Map();
-const tripVehicles = new Map();
-
-const MAX_DEPARTURES = 10;
+/* =========================================
+   DPMA ONLINE
+   AKTUÁLNÍ ODJEZDY
+========================================= */
 
 
 /* =========================================
-   ČAS
+   ELEMENTY STRÁNKY
 ========================================= */
 
-function timeToMinutes(time) {
-    const [hours, minutes] = time.split(":").map(Number);
-    return hours * 60 + minutes;
+let stopSelect = null;
+let departuresContainer = null;
+let refreshButton = null;
+let systemStatus = null;
+let lastUpdate = null;
+
+
+/* =========================================
+   INICIALIZACE
+========================================= */
+
+function initializeDepartures() {
+
+    stopSelect =
+        document.getElementById(
+            "stopSelect"
+        );
+
+    departuresContainer =
+        document.getElementById(
+            "departuresContainer"
+        );
+
+    refreshButton =
+        document.getElementById(
+            "refreshButton"
+        );
+
+    systemStatus =
+        document.getElementById(
+            "systemStatus"
+        );
+
+    lastUpdate =
+        document.getElementById(
+            "lastUpdate"
+        );
+
+
+    if (!stopSelect) {
+
+        console.warn(
+            "stopSelect nebyl nalezen."
+        );
+
+        return;
+    }
+
+
+    if (!departuresContainer) {
+
+        console.warn(
+            "departuresContainer nebyl nalezen."
+        );
+
+        return;
+    }
+
+
+    /* ==============================
+       NASTAVENÍ ZASTÁVEK
+    ============================== */
+
+    populateStops();
+
+
+    /* ==============================
+       ZMĚNA ZASTÁVKY
+    ============================== */
+
+    stopSelect.addEventListener(
+        "change",
+        () => {
+
+            renderCurrentStop();
+
+        }
+    );
+
+
+    /* ==============================
+       TLAČÍTKO AKTUALIZACE
+    ============================== */
+
+    if (refreshButton) {
+
+        refreshButton.addEventListener(
+            "click",
+            () => {
+
+                renderCurrentStop();
+
+            }
+        );
+
+    }
+
+
+    /*
+        Výchozí zastávka
+    */
+
+    const stops =
+        getAllStops();
+
+
+    if (stops.length > 0) {
+
+        stopSelect.value =
+            stops[0];
+
+        renderCurrentStop();
+
+    }
+
+
+    /*
+        Automatická aktualizace
+        každých 30 sekund.
+    */
+
+    setInterval(
+        () => {
+
+            renderCurrentStop();
+
+        },
+        30000
+    );
+
+
+    setStatus(
+        "Systém připraven"
+    );
 }
 
 
+/* =========================================
+   NASTAVENÍ STATUSU
+========================================= */
+
+function setStatus(text) {
+
+    if (systemStatus) {
+
+        systemStatus.textContent =
+            text;
+
+    }
+}
+
+
+/* =========================================
+   NAPLNĚNÍ SEZNAMU ZASTÁVEK
+========================================= */
+
+function populateStops() {
+
+    if (!stopSelect) {
+        return;
+    }
+
+
+    const stops =
+        getAllStops();
+
+
+    stopSelect.innerHTML = "";
+
+
+    const defaultOption =
+        document.createElement(
+            "option"
+        );
+
+
+    defaultOption.value = "";
+
+    defaultOption.textContent =
+        "Vyber zastávku...";
+
+
+    stopSelect.appendChild(
+        defaultOption
+    );
+
+
+    for (const stop of stops) {
+
+        const option =
+            document.createElement(
+                "option"
+            );
+
+
+        option.value =
+            stop;
+
+        option.textContent =
+            stop;
+
+
+        stopSelect.appendChild(
+            option
+        );
+
+    }
+
+}
+
+
+/* =========================================
+   AKTUÁLNÍ ZASTÁVKA
+========================================= */
+
+function renderCurrentStop() {
+
+    if (!stopSelect) {
+        return;
+    }
+
+
+    const stopName =
+        stopSelect.value;
+
+
+    if (!stopName) {
+
+        departuresContainer.innerHTML =
+
+            `<div class="loading">
+                Vyber zastávku.
+            </div>`;
+
+        return;
+    }
+
+
+    renderDepartures(
+        stopName
+    );
+
+}
+
+
+/* =========================================
+   PŘEVOD ČASU NA MINUTY
+========================================= */
+
 function getCurrentMinutes() {
-    const now = new Date();
+
+    const now =
+        new Date();
+
 
     return (
         now.getHours() * 60 +
         now.getMinutes()
     );
-}
 
-
-function getCurrentSeconds() {
-    const now = new Date();
-
-    return (
-        now.getHours() * 3600 +
-        now.getMinutes() * 60 +
-        now.getSeconds()
-    );
 }
 
 
 /* =========================================
-   ROZDÍL ČASU
+   ROZDÍL DO ODJEDU
 ========================================= */
 
-function getMinutesUntil(departureTime) {
+function getMinutesUntil(
+    time
+) {
 
-    const now = new Date();
+    const now =
+        getCurrentMinutes();
 
-    const currentSeconds =
-        now.getHours() * 3600 +
-        now.getMinutes() * 60 +
-        now.getSeconds();
 
-    const [hours, minutes] =
-        departureTime.split(":").map(Number);
+    let departure =
+        timeToMinutes(
+            time
+        );
 
-    let departureSeconds =
-        hours * 3600 +
-        minutes * 60;
 
     let difference =
-        departureSeconds - currentSeconds;
+        departure - now;
 
 
-    // Spoj po půlnoci
-    if (difference < -43200) {
-        difference += 86400;
+    /*
+        Přechod přes půlnoc.
+    */
+
+    if (difference < -720) {
+
+        difference += 1440;
+
     }
 
-    return Math.ceil(difference / 60);
+
+    return difference;
+
+}
+
+
+/* =========================================
+   FORMÁT ODPOČTU
+========================================= */
+
+function formatCountdown(
+    minutes
+) {
+
+    if (minutes <= 0) {
+        return "nyní";
+    }
+
+
+    if (minutes === 1) {
+        return "za 1 min";
+    }
+
+
+    return `za ${minutes} min`;
+
 }
 
 
@@ -72,132 +336,311 @@ function getMinutesUntil(departureTime) {
    ZPOŽDĚNÍ
 ========================================= */
 
-function getDelayClass(delay) {
+function generateDelay(
+    tripId
+) {
+
+    /*
+        Zpoždění si uložíme,
+        aby se při každém refreshi
+        neměnilo.
+    */
+
+    const trip =
+        activeTrips.get(
+            tripId
+        );
+
+
+    if (!trip) {
+        return 0;
+    }
+
+
+    if (
+        typeof trip.delay !==
+        "number"
+    ) {
+
+        const delays = [
+            0,
+            0,
+            0,
+            0,
+            1,
+            2,
+            3
+        ];
+
+
+        trip.delay =
+            delays[
+                Math.floor(
+                    Math.random() *
+                    delays.length
+                )
+            ];
+
+    }
+
+
+    return trip.delay;
+
+}
+
+
+/* =========================================
+   TŘÍDA ZPOŽDĚNÍ
+========================================= */
+
+function getDelayClass(
+    delay
+) {
 
     if (delay <= 0) {
         return "ok";
     }
 
+
     if (delay <= 3) {
         return "warning";
     }
 
+
     return "bad";
-}
 
-
-function formatDelay(delay) {
-
-    if (delay <= 0) {
-        return "0 min";
-    }
-
-    return "+" + delay + " min";
 }
 
 
 /* =========================================
-   ODPČET ODJEZDU
+   VYKRESLENÍ ODJEDŮ
 ========================================= */
 
-function formatDeparture(minutes) {
-
-    if (minutes <= 0) {
-        return "nyní";
-    }
-
-    if (minutes === 1) {
-        return "za 1 min";
-    }
-
-    return "za " + minutes + " min";
-}
-
-
-/* =========================================
-   ID SPOJE
-========================================= */
-
-function createTripId(
-    line,
-    directionId,
-    stopName,
-    departure
+function renderDepartures(
+    stopName
 ) {
 
-    return (
-        line +
-        "_" +
-        directionId +
-        "_" +
-        stopName +
-        "_" +
-        departure
+    if (!departuresContainer) {
+        return;
+    }
+
+
+    setStatus(
+        "Aktualizuji..."
     );
+
+
+    const departures =
+        getDeparturesAtStop(
+            stopName
+        );
+
+
+    const currentMinutes =
+        getCurrentMinutes();
+
+
+    /*
+        Vybereme pouze budoucí spoje.
+    */
+
+    const upcoming =
+        departures.filter(
+            trip => {
+
+                const difference =
+                    getMinutesUntil(
+                        trip.stopTime
+                    );
+
+
+                return difference >= 0;
+
+            }
+        );
+
+
+    /*
+        Seřadíme podle času.
+    */
+
+    upcoming.sort(
+        (a, b) => {
+
+            return (
+                timeToMinutes(
+                    a.stopTime
+                ) -
+                timeToMinutes(
+                    b.stopTime
+                )
+            );
+
+        }
+    );
+
+
+    /*
+        Pouze 10 nejbližších.
+    */
+
+    const visible =
+        upcoming.slice(
+            0,
+            10
+        );
+
+
+    departuresContainer.innerHTML =
+        "";
+
+
+    if (visible.length === 0) {
+
+        departuresContainer.innerHTML =
+
+            `<div class="loading">
+                Žádné další odjezdy.
+            </div>`;
+
+
+        setStatus(
+            "Žádné další spoje"
+        );
+
+
+        updateLastUpdate();
+
+        return;
+    }
+
+
+    /*
+        Vykreslení jednotlivých spojů.
+    */
+
+    for (const trip of visible) {
+
+        const element =
+            createDepartureElement(
+                trip
+            );
+
+
+        departuresContainer.appendChild(
+            element
+        );
+
+    }
+
+
+    setStatus(
+        `${visible.length} nejbližších spojů`
+    );
+
+
+    updateLastUpdate();
+
 }
 
 
 /* =========================================
-   ZÍSKÁNÍ SPOJŮ ZE VŠECH LINEK
+   OBRAT VOZIDLA
 ========================================= */
 
-async function getAllLineDepartures(stopName) {
+function ensureVehicleForTrip(
+    trip
+) {
 
-    const result = [];
+    /*
+        Už vozidlo máme.
+    */
+
+    if (
+        tripVehicles.has(
+            trip.id
+        )
+    ) {
+
+        return tripVehicles.get(
+            trip.id
+        );
+
+    }
 
 
-    // V současnosti máme načtenou linku 1.
-    // Později sem automaticky přidáme všechny
-    // linky z data/lines/.
+    /*
+        Zkusíme zjistit,
+        jestli vozidlo pokračuje
+        z předchozího spoje.
+    */
 
-    for (const line of Object.keys(lineData)) {
-
-        const data = lineData[line];
-
-        if (!data || !data.directions) {
-            continue;
-        }
+    const line =
+        getLine(
+            trip.line
+        );
 
 
-        for (const direction of data.directions) {
+    if (line) {
 
-            for (const stop of direction.stops) {
+        const directions =
+            line.directions;
 
-                if (stop.name !== stopName) {
+
+        for (
+            const direction of directions
+        ) {
+
+            const trips =
+                createTrips(
+                    line
+                );
+
+
+            for (
+                const previousTrip
+                of trips
+            ) {
+
+                if (
+                    previousTrip.id ===
+                    trip.id
+                ) {
                     continue;
                 }
 
 
-                for (const departure of stop.departures) {
+                const vehicle =
+                    tripVehicles.get(
+                        previousTrip.id
+                    );
 
-                    result.push({
 
-                        line: line,
+                if (!vehicle) {
+                    continue;
+                }
 
-                        directionId:
-                            direction.id,
 
-                        direction:
-                            direction.name,
+                const nextTrip =
+                    findNextTrip(
+                        line,
+                        previousTrip
+                    );
 
-                        stop:
-                            stop.name,
 
-                        platform:
-                            stop.platform,
+                if (
+                    nextTrip &&
+                    nextTrip.id ===
+                    trip.id
+                ) {
 
-                        departure:
-                            departure,
+                    tripVehicles.set(
+                        trip.id,
+                        vehicle
+                    );
 
-                        tripId:
-                            createTripId(
-                                line,
-                                direction.id,
-                                stop.name,
-                                departure
-                            )
 
-                    });
+                    return vehicle;
 
                 }
 
@@ -208,294 +651,14 @@ async function getAllLineDepartures(stopName) {
     }
 
 
-    return result;
-}
-
-
-/* =========================================
-   ZPOŽDĚNÍ SPOJE
-========================================= */
-
-function getTripDelay(tripId) {
-
-    if (!activeTrips.has(tripId)) {
-
-        // Zatím simulované zpoždění.
-        // Později bude možné zadávat zpoždění
-        // přes dispečink.
-
-        const possibleDelays = [
-            0,
-            0,
-            0,
-            0,
-            1,
-            2,
-            3
-        ];
-
-        const delay =
-            possibleDelays[
-                Math.floor(
-                    Math.random() *
-                    possibleDelays.length
-                )
-            ];
-
-
-        activeTrips.set(tripId, {
-
-            delay: delay,
-
-            created:
-                Date.now()
-
-        });
-
-    }
-
-
-    return activeTrips.get(tripId).delay;
-}
-
-
-/* =========================================
-   VOZIDLO
-========================================= */
-
-function getTripVehicle(trip) {
-
     /*
-        Pokud už spoj vozidlo má,
-        vrátíme stejné vozidlo.
+        Pokud vozidlo ještě nemáme,
+        přidělíme nové.
     */
 
-    if (tripVehicles.has(trip.tripId)) {
-
-        return tripVehicles.get(
-            trip.tripId
-        );
-
-    }
-
-
-    /*
-        Pokud nemá, vytvoříme nové.
-    */
-
-    const vehicle =
-        assignVehicleToDeparture(
-            trip.tripId,
-            trip.line
-        );
-
-
-    if (!vehicle) {
-        return null;
-    }
-
-
-    tripVehicles.set(
-        trip.tripId,
-        vehicle
-    );
-
-
-    return vehicle;
-}
-
-
-/* =========================================
-   OBRAT NA KONEČNÉ
-========================================= */
-
-function findNextOppositeTrip(
-    trip
-) {
-
-    const data =
-        lineData[trip.line];
-
-    if (!data) {
-        return null;
-    }
-
-
-    /*
-        Najdeme opačný směr.
-    */
-
-    const oppositeDirectionId =
-        trip.directionId === "A"
-            ? "B"
-            : "A";
-
-
-    const oppositeDirection =
-        data.directions.find(
-            direction =>
-                direction.id ===
-                oppositeDirectionId
-        );
-
-
-    if (!oppositeDirection) {
-        return null;
-    }
-
-
-    /*
-        Najdeme konečnou současného směru.
-    */
-
-    const currentDirection =
-        data.directions.find(
-            direction =>
-                direction.id ===
-                trip.directionId
-        );
-
-
-    if (!currentDirection) {
-        return null;
-    }
-
-
-    const lastStop =
-        currentDirection.stops[
-            currentDirection.stops.length - 1
-        ];
-
-
-    if (!lastStop) {
-        return null;
-    }
-
-
-    /*
-        Najdeme poslední čas odjezdu
-        z konečné, který odpovídá
-        příjezdu vozidla.
-    */
-
-    const departures =
-        oppositeDirection.stops[0]?.departures;
-
-
-    if (!departures) {
-        return null;
-    }
-
-
-    const currentDeparture =
-        timeToMinutes(
-            trip.departure
-        );
-
-
-    let nextDeparture = null;
-
-
-    for (const departure of departures) {
-
-        const minutes =
-            timeToMinutes(departure);
-
-
-        if (
-            minutes >
-            currentDeparture
-        ) {
-
-            nextDeparture =
-                departure;
-
-            break;
-
-        }
-
-    }
-
-
-    if (!nextDeparture) {
-        return null;
-    }
-
-
-    return {
-
-        line:
-            trip.line,
-
-        directionId:
-            oppositeDirection.id,
-
-        direction:
-            oppositeDirection.name,
-
-        departure:
-            nextDeparture,
-
-        tripId:
-            createTripId(
-                trip.line,
-                oppositeDirection.id,
-                oppositeDirection.stops[0].name,
-                nextDeparture
-            )
-
-    };
-}
-
-
-/* =========================================
-   PŘEDÁNÍ VOZIDLA NA DALŠÍ SPOJ
-========================================= */
-
-function transferVehicleToNextTrip(
-    trip
-) {
-
-    const vehicle =
-        tripVehicles.get(
-            trip.tripId
-        );
-
-
-    if (!vehicle) {
-        return;
-    }
-
-
-    const nextTrip =
-        findNextOppositeTrip(
-            trip
-        );
-
-
-    if (!nextTrip) {
-        return;
-    }
-
-
-    /*
-        Stejné vozidlo dostane
-        následující spoj.
-    */
-
-    tripVehicles.set(
-        nextTrip.tripId,
-        vehicle
-    );
-
-
-    /*
-        Starý spoj už vozidlo
-        nepotřebuje.
-    */
-
-    tripVehicles.delete(
-        trip.tripId
+    return assignVehicleToDeparture(
+        trip.id,
+        trip.line
     );
 
 }
@@ -510,32 +673,35 @@ function createDepartureElement(
 ) {
 
     const element =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
+
 
     element.className =
         "departure";
 
 
-    const delay =
-        getTripDelay(
-            trip.tripId
+    const minutes =
+        getMinutesUntil(
+            trip.stopTime
         );
 
 
-    const minutes =
-        getMinutesUntil(
-            trip.departure
+    const delay =
+        generateDelay(
+            trip.id
         );
 
 
     const vehicle =
-        getTripVehicle(
+        ensureVehicleForTrip(
             trip
         );
 
 
     let vehicleHTML =
-        "—";
+        "Vozidlo neuvedeno";
 
 
     if (vehicle) {
@@ -550,15 +716,17 @@ function createDepartureElement(
 
             <div class="vehicle">
 
-                <div class="vehicle-number">
-                    ${vehicle.fleetNumber}
-                </div>
-
                 <div>
-                    ${vehicle.type}
-                    <span class="air">
+
+                    <div class="vehicle-number">
+                        ${vehicle.fleetNumber}
+                    </div>
+
+                    <div>
+                        ${vehicle.type}
                         ${air}
-                    </span>
+                    </div>
+
                 </div>
 
             </div>
@@ -568,38 +736,37 @@ function createDepartureElement(
     }
 
 
-    const delayClass =
-        getDelayClass(
-            delay
-        );
-
-
     element.innerHTML = `
 
         <div class="line">
             ${trip.line}
         </div>
 
-
         <div class="direction">
-            ${trip.direction}
+            ${trip.destination}
         </div>
-
 
         <div class="time">
-            ${formatDeparture(minutes)}
+
+            <strong>
+                ${trip.stopTime}
+            </strong>
+
+            <small>
+                ${formatCountdown(minutes)}
+            </small>
+
         </div>
 
+        <div class="delay ${getDelayClass(delay)}">
 
-        <div class="delay ${delayClass}">
-            ${formatDelay(delay)}
+            ${
+                delay > 0
+                    ? "+" + delay + " min"
+                    : "Včas"
+            }
+
         </div>
-
-
-        <div class="platform">
-            Nást. ${trip.platform}
-        </div>
-
 
         ${vehicleHTML}
 
@@ -607,14 +774,14 @@ function createDepartureElement(
 
 
     /*
-        Kliknutí na spoj
+        Kliknutí na spoj.
     */
 
     element.addEventListener(
         "click",
         () => {
 
-            showTripDetails(
+            showDepartureDetails(
                 trip,
                 vehicle,
                 delay
@@ -632,207 +799,68 @@ function createDepartureElement(
    DETAIL SPOJE
 ========================================= */
 
-function showTripDetails(
+function showDepartureDetails(
     trip,
     vehicle,
     delay
 ) {
 
-    let message =
+    let text =
 
-        "Linka " +
-        trip.line +
-        "\n\n" +
+        `LINKA ${trip.line}\n\n` +
 
-        "Směr: " +
-        trip.direction +
-        "\n\n" +
+        `Cíl: ${trip.destination}\n` +
 
-        "Odjezd: " +
-        trip.departure +
-        "\n\n" +
+        `Odjezd: ${trip.stopTime}\n` +
 
-        "Zpoždění: " +
-        formatDelay(delay) +
-        "\n\n" +
-
-        "Nástupiště: " +
-        trip.platform;
+        `Zpoždění: ${
+            delay > 0
+                ? "+" + delay + " min"
+                : "Včas"
+        }`;
 
 
     if (vehicle) {
 
-        message +=
+        text +=
 
-            "\n\nVozidlo: " +
-            vehicle.fleetNumber +
+            `\n\nVozidlo: ${
+                vehicle.fleetNumber
+            }` +
 
-            "\nTyp: " +
-            vehicle.type +
+            `\nTyp: ${
+                vehicle.type
+            }` +
 
-            "\nKlimatizace: " +
-            (
+            `\nKlimatizace: ${
                 vehicle.airConditioning
                     ? "Ano"
                     : "Ne"
-            );
+            }`;
 
     }
 
 
-    alert(message);
+    alert(text);
+
 }
 
 
 /* =========================================
-   HLAVNÍ FUNKCE
+   POSLEDNÍ AKTUALIZACE
 ========================================= */
 
-async function renderDepartures(
-    stopName
-) {
+function updateLastUpdate() {
 
-    departuresContainer.innerHTML =
-        `<div class="loading">
-            Načítám odjezdy...
-        </div>`;
-
-
-    const departures =
-        await getAllLineDepartures(
-            stopName
-        );
-
-
-    const now =
-        getCurrentMinutes();
-
-
-    /*
-        Odstraníme spoje,
-        které už dávno odjely.
-    */
-
-    const upcoming =
-        departures.filter(
-            trip => {
-
-                const departure =
-                    timeToMinutes(
-                        trip.departure
-                    );
-
-
-                let difference =
-                    departure - now;
-
-
-                if (difference < -720) {
-                    difference += 1440;
-                }
-
-
-                return difference >= 0;
-
-            }
-        );
-
-
-    /*
-        Seřadíme podle času.
-    */
-
-    upcoming.sort(
-        (a, b) => {
-
-            const aTime =
-                timeToMinutes(
-                    a.departure
-                );
-
-            const bTime =
-                timeToMinutes(
-                    b.departure
-                );
-
-
-            return aTime - bTime;
-
-        }
-    );
-
-
-    /*
-        Maximálně 10 odjezdů.
-    */
-
-    const visible =
-        upcoming.slice(
-            0,
-            MAX_DEPARTURES
-        );
-
-
-    departuresContainer.innerHTML = "";
-
-
-    if (visible.length === 0) {
-
-        departuresContainer.innerHTML =
-
-            `<div class="loading">
-                Žádné další odjezdy.
-            </div>`;
-
+    if (!lastUpdate) {
         return;
     }
 
 
-    for (const trip of visible) {
-
-        const element =
-            createDepartureElement(
-                trip
-            );
-
-
-        departuresContainer.appendChild(
-            element
-        );
-
-    }
-
-
-    document.getElementById(
-        "lastUpdate"
-    ).textContent =
-        "Aktualizováno: " +
+    lastUpdate.textContent =
+        "Aktualizováno " +
         new Date().toLocaleTimeString(
             "cs-CZ"
         );
 
 }
-
-
-/* =========================================
-   AUTOMATICKÁ AKTUALIZACE
-========================================= */
-
-setInterval(
-    () => {
-
-        const stop =
-            stopSelect?.value;
-
-
-        if (stop) {
-
-            renderDepartures(
-                stop
-            );
-
-        }
-
-    },
-    30000
-);
