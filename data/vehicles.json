@@ -1,1 +1,37 @@
+{
+    "Škoda 26TR": {
+        "category": "Trolejbus",
+        "airConditioning": false,
+        "fleetNumbers": {
+            "from": 3104,
+            "to": 3130
+        }
+    },
 
+    "Škoda 27TR": {
+        "category": "Trolejbus",
+        "airConditioning": true,
+        "fleetNumbers": {
+            "from": 3400,
+            "to": 3433
+        }
+    },
+
+    "Škoda 31TR": {
+        "category": "Trolejbus",
+        "airConditioning": false,
+        "fleetNumbers": {
+            "from": 3209,
+            "to": 3230
+        }
+    },
+
+    "Škoda 32TR": {
+        "category": "Trolejbus",
+        "airConditioning": true,
+        "fleetNumbers": {
+            "from": 3300,
+            "to": 3329
+        }
+    }
+}
